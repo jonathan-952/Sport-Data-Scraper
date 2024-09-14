@@ -7,6 +7,7 @@ const scrape = ( async () => {
         const driver = await new Builder().forBrowser(Browser.CHROME).build();
 
         await driver.get('https://www.livesport.com/soccer/brazil/serie-a-2012/results/');
+
         //reject cookies
         await driver.sleep(5000);
         const button = await driver.findElement(By.css('#onetrust-reject-all-handler'));
@@ -15,21 +16,22 @@ const scrape = ( async () => {
 
         const today = new Date();
         const year = today.getFullYear();
-
+        //loop through each series year
         for (let i = 2012; i < year; i++) {
             let url = await driver.getCurrentUrl();
             url = url.replace(/(\bserie-a-)\d{4}/, `$1${i}`);
             await driver.navigate().to(url);
 
             await driver.wait(until.elementsLocated(By.css('.eventRowLink')), 10000);
-            const pages = await driver.findElements(By.css('.eventRowLink'));
+            let pages = await driver.findElements(By.css('.eventRowLink'));
         
             const originalWindow = await driver.getWindowHandle();
             let games = []
-            for (const pages of pages) {
-               
-                await driver.executeScript("arguments[0].scrollIntoView();",page);
-                await driver.executeScript("arguments[0].click();", page);
+
+            //loop through each game summary
+            for (let p = 0; p < pages.length; p++) {
+                await driver.executeScript("arguments[0].scrollIntoView();", pages[p]);
+                await driver.executeScript("arguments[0].click();", pages[p]);
                 await driver.wait(
                     async () => (await driver.getAllWindowHandles()).length === 2,
                     10000
@@ -42,7 +44,8 @@ const scrape = ( async () => {
                         await driver.switchTo().window(window);
                     };
                 };
-
+   
+                //get data from game summary
                 const homeScore = await driver.findElement(By.css(`.detailScore__wrapper > :nth-child(1)`));
                 const awayScore = await driver.findElement(By.css(`.detailScore__wrapper > :nth-child(3)`));
                 const date = await driver.findElement(By.css(`.duelParticipant__startTime`));
@@ -61,29 +64,40 @@ const scrape = ( async () => {
                 let game = [];
                 game.push(await homeTeam.getText(), await awayTeam.getText(), parsedDate, await homeScore.getText(), await awayScore.getText());
                 games.push(game);
-                await driver.quit();
+
                 await driver.close();
                 await driver.switchTo().window(originalWindow);
-                }
 
-                try {
-                    const dropdown = await driver.findElement(By.css('.event__more event__more--static'));
-                    await driver.wait(until.elementIsVisible(dropdown), 10000);
-                    await dropdown.click();
-    
-                } catch (err) {
-                    if (err instanceof NoSuchElementError) {
-                        continue;
-                    } else {
-                        break;
+                // if "show more games" is at bottom of page and loop has iterated through game summaries, click show more
+                if (p == pages.length - 1) {
+                    try {
+                        const dropdown = await driver.findElement(By.css('.event__more.event__more--static'));
+                        await driver.executeScript("arguments[0].scrollIntoView();", pages[p - 5]);
+                        await driver.wait(until.elementIsVisible(dropdown), 10000);
+                        await dropdown.click();
+
+                        await driver.wait(async () => {
+                            let newPages = await driver.findElements(By.css('.eventRowLink'));
+                            return newPages.length > pages.length;
+                        }, 10000);
+
+                        pages = await driver.findElements(By.css('.eventRowLink'));
+                    } catch (err) {
+                        if (!(err instanceof NoSuchElementError)) {
+                            console.log(err)
+                            await driver.quit()
+                        } 
                     }
                 }
-
+                }
+            for (let g = games.length - 1; g >= 0; g--) {
+                results.push(games[g]);
+            }
         }
         } catch (err) {
             console.error(err)
         }
     return results;
 });
-scrape()
+
 module.exports = scrape;
