@@ -11,6 +11,7 @@ const DateConverter = require('./Handlers/dateConverter.js')
 
 app.get('/', async (req, res) => {
     try {
+        const results = await scrape();
         const serviceAccountAuth = new JWT ({
             email: creds.client_email,
             key: creds.private_key,
@@ -21,38 +22,33 @@ app.get('/', async (req, res) => {
         });
 
         const doc = new GoogleSpreadsheet('1XgCyA0QGsRwP0HES8hxrKR2CNsIHi-wJDzlt4Hyu5-4', serviceAccountAuth);
-  
         await doc.loadInfo();
         
         const sheet = doc.sheetsByIndex[0];
         const rows = await sheet.getRows();
-        let counter = 0;
-        const dateGS = rows[0].get('Date');
-        const parsedDate = DateConverter(dateGS)
-        for (let i = 0; i < rows.length; i++) {
-            const homeGS = rows[i].get('Home');
-            const awayGS = rows[i].get('Away');
+        
+        for (let i = 0; i < 10; i++) {
+            const dateGS = rows[0].get('Date');
+            const parsedDate = DateConverter(dateGS)
+            const homeTeamGS = rows[i].get('Home');
+            const awayTeamGS = rows[i].get('Away');
+            const homeFinalScoreGS = rows[i].get('HG');
+            const awayFinalScoreGS = rows[i].get('AG');
+
+            const gameGS = [homeTeamGS, awayTeamGS, parsedDate, homeFinalScoreGS, awayFinalScoreGS].join('|')
+            console.log(gameGS);
             
-
-            
-            // const homeScore = ;
-            // const awayScore = ;
-
-        //     if ( homeGS == results1 && awayGS == results2 
-        //         && homeScore == homeScoreGS && awayScore == awayScoreGS) {
-
-        //         rows[i].assign({HTHG: halftimeHG, HTAG: halftimeAG});
-        //         await rows[i].save();
-        //     }
-        //     else {
-        //         counter++
-        //     }
+            if (results[gameGS]) {
+                rows[i].set('HTHG', results[gameGS][0]);
+                rows[i].set('HTAG', results[gameGS][4]);
+                await rows[i].save();
+            } else {
+                rows[i].assign({HTHG: '-', HTAG: '-'});
+                await rows[i].save();
+            }
         }
-
-        // find if row in sheet matches score and game details in website
-        // date  && team names ? {add in score} else {cross out}
-    
-        res.send("hello worldddddd")
+        console.log("successful!");
+        res.send(results)
     } catch (err) {
         if (err.response) {
             console.error('Error details:', err.response?.data)
@@ -62,8 +58,6 @@ app.get('/', async (req, res) => {
         }
     }
 });
-
-
 
 app.listen(port, () => {
     console.log('Server is listening on port', port);
