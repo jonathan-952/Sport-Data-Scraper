@@ -17,7 +17,7 @@ const scrape = ( async () => {
         const today = new Date();
         const year = today.getFullYear();
         //loop through each series year
-        for (let i = 2012; i < 2013; i++) {
+        for (let i = 2012; i < year; i++) {
             let url = await driver.getCurrentUrl();
             url = url.replace(/(\bserie-a-)\d{4}/, `$1${i}`);
             await driver.navigate().to(url);
@@ -29,7 +29,7 @@ const scrape = ( async () => {
             let games = []
 
             //loop through each game summary
-            for (let p = 109; p < pages.length; p++) {
+            for (let p = 0; p < pages.length; p++) {
                 await driver.executeScript("arguments[0].scrollIntoView();", pages[p]);
                 await driver.executeScript("arguments[0].click();", pages[p]);
                 await driver.wait(
