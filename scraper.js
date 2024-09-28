@@ -6,7 +6,7 @@ const scrape = ( async () => {
     try {
         const driver = await new Builder().forBrowser(Browser.CHROME).build();
 
-        await driver.get('https://www.livesport.com/soccer/brazil/serie-a-2012/results/');
+        await driver.get('https://www.livesport.com/soccer/brazil/serie-a-betano-2012/#/QVLD5nO8/table/overall');
 
         //reject cookies
         await driver.sleep(5000);
@@ -19,7 +19,7 @@ const scrape = ( async () => {
         //loop through each series year
         for (let i = 2012; i < year; i++) {
             let url = await driver.getCurrentUrl();
-            url = url.replace(/(\bserie-a-)\d{4}/, `$1${i}`);
+            url = url.replace(/(\bserie-a-betano-)\d{4}/, `$1${i}`);
             await driver.navigate().to(url);
 
             await driver.wait(until.elementsLocated(By.css('.eventRowLink')), 10000);
@@ -46,7 +46,8 @@ const scrape = ( async () => {
                 };
    
                 //get data from game summary
-                const halftimeScore = await driver.wait(until.elementLocated(By.css('.smv__incidentsHeader.section__title > :nth-child(2)')), 10000);
+                const halftimeScore = await driver.wait(until.elementLocated(By.css('.smv__verticalSections.section > .smv__incidentsHeader.section__title:nth-child(1) > :nth-child(2)')), 10000);
+                const secondHalfScore = await driver.wait(until.elementLocated(By.css('.smv__verticalSections.section > .smv__incidentsHeader.section__title:nth-child(2) > :nth-child(2)')), 10000);
 
                 const homeFinalScore = await driver.findElement(By.css(`.detailScore__wrapper > :nth-child(1)`));
                 const awayFinalScore = await driver.findElement(By.css(`.detailScore__wrapper > :nth-child(3)`));
@@ -65,12 +66,13 @@ const scrape = ( async () => {
                 await driver.wait(until.elementIsVisible(awayTeam), 10000);
 
                 await driver.wait(until.elementIsVisible(halftimeScore), 10000);
+                await driver.wait(until.elementIsVisible(secondHalfScore), 10000);
         
                 let parsedDate = await date.getText();
                 parsedDate = parsedDate.slice(parsedDate.indexOf(',') + 2, parsedDate.length);
     
                 let game = [];
-                game.push(await homeTeam.getText(), await awayTeam.getText(), parsedDate, await homeFinalScore.getText(), await awayFinalScore.getText(), await halftimeScore.getText());
+                game.push(await homeTeam.getText(), await awayTeam.getText(), parsedDate, await homeFinalScore.getText(), await awayFinalScore.getText(), await secondHalfScore.getText(), await halftimeScore.getText());
                 games.push(game);
 
                 await driver.close();
@@ -99,8 +101,8 @@ const scrape = ( async () => {
                 }
                 }
             for (let g = games.length - 1; g >= 0; g--) {
-                const halftimeScores = games[g][5]
-                results[games[g].slice(0, 5).join('|')] = halftimeScores;
+                const halftimeScores = games[g][6]
+                results[games[g].slice(0, 6).join('|')] = halftimeScores;
             }
         }
         } catch (err) {
@@ -108,5 +110,7 @@ const scrape = ( async () => {
         }
     return results;
 });
+
+scrape();
 
 module.exports = scrape;
